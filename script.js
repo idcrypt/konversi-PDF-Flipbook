@@ -16,29 +16,40 @@ uploadInput.addEventListener("change", async (e) => {
     const pdf = await pdfjsLib.getDocument(typedarray).promise;
 
     container.innerHTML = ""; // reset
-    pageImages = [];
+    pageImages = Array(pdf.numPages).fill(null); // placeholder
 
-    // Render pages lazy (satu-satu)
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
+    // Create flipbook with placeholders
+    const flipbook = new St.PageFlip(container, {
+      width: 600,
+      height: 500,
+      size: "stretch",
+      maxShadowOpacity: 0.5,
+      showCover: true,
+      startPage: 0
+    });
+
+    // Lazy load pages
+    const loadPage = async (pageNum) => {
+      if (pageImages[pageNum]) return; // already loaded
+      const page = await pdf.getPage(pageNum + 1);
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       const ctx = canvas.getContext("2d");
       await page.render({ canvasContext: ctx, viewport }).promise;
-      pageImages.push(canvas.toDataURL());
-    }
+      pageImages[pageNum] = canvas.toDataURL();
+      flipbook.updatePage(pageNum, pageImages[pageNum]);
+    };
 
-    // Create flipbook
-    const flipbook = new St.PageFlip(container, {
-      width: 600,
-      height: 500,
-      size: "stretch",
-      maxShadowOpacity: 0.5,
-      showCover: true
+    // Preload first page
+    await loadPage(0);
+
+    // Event listener untuk flip → load halaman saat dibuka
+    flipbook.on("flip", async (e) => {
+      const pageIndex = e.data;
+      await loadPage(pageIndex);
     });
-    flipbook.loadFromImages(pageImages);
 
     downloadBtn.disabled = false;
   };
@@ -46,27 +57,27 @@ uploadInput.addEventListener("change", async (e) => {
   fileReader.readAsArrayBuffer(file);
 });
 
-// Export flipbook offline as ZIP
+// Download ZIP tetap sama seperti sebelumnya
 downloadBtn.addEventListener("click", () => {
   const zip = new JSZip();
   const flipbookFolder = zip.folder("flipbook");
   const jsFolder = flipbookFolder.folder("js");
   const pagesFolder = flipbookFolder.folder("pages");
 
-  // Copy JS and CSS (StPageFlip & minimal CSS)
   fetch("https://unpkg.com/st-pageflip/dist/js/pageflip.min.js")
     .then(res => res.text())
     .then(jsContent => {
       jsFolder.file("pageflip.min.js", jsContent);
-      flipbookFolder.file("style.css", `body{margin:0;font-family:Arial,sans-serif}#flipbook-container{width:100%;height:500px}`)
+      flipbookFolder.file("style.css", `body{margin:0;font-family:Arial,sans-serif}#flipbook-container{width:100%;height:500px}`);
 
-      // Save images
+      // Simpan halaman yang sudah dirender
       pageImages.forEach((img, idx) => {
-        const base64Data = img.split(',')[1];
-        pagesFolder.file(`page${idx+1}.png`, base64Data, {base64: true});
+        if(img){
+          const base64Data = img.split(',')[1];
+          pagesFolder.file(`page${idx+1}.png`, base64Data, {base64: true});
+        }
       });
 
-      // Create index.html inside ZIP
       let indexHTML = `
       <!DOCTYPE html>
       <html lang="en">
@@ -79,17 +90,16 @@ downloadBtn.addEventListener("click", () => {
       <body>
         <div id="flipbook-container"></div>
         <script>
-          const images = [${pageImages.map((_, i)=>`'pages/page${i+1}.png'`).join(",")}];
+          const images = [${pageImages.map((img, i) => img ? `'pages/page${i+1}.png'` : 'null').join(",")}];
           const container = document.getElementById("flipbook-container");
           const flipbook = new St.PageFlip(container, { width:600, height:500, size:"stretch", maxShadowOpacity:0.5, showCover:true });
-          flipbook.loadFromImages(images);
+          flipbook.loadFromImages(images.filter(img => img !== null));
         </script>
       </body>
       </html>
       `;
       flipbookFolder.file("index.html", indexHTML);
 
-      // Generate ZIP
       zip.generateAsync({type:"blob"}).then(blob => {
         saveAs(blob, "flipbook.zip");
       });
