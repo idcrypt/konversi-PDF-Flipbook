@@ -6,11 +6,14 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://unpkg.com/pdfjs-dist/build/pdf.min.js"></script>
   <script src="https://unpkg.com/st-pageflip/dist/js/pageflip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
   <div class="container">
     <h1>PDF to Flipbook Tool</h1>
     <input type="file" id="pdf-upload" accept="application/pdf">
+    <button id="download-btn" disabled>Download Flipbook</button>
     <div id="flipbook-container"></div>
   </div>
 
