@@ -15,10 +15,9 @@ uploadInput.addEventListener("change", async (e) => {
     const typedarray = new Uint8Array(this.result);
     const pdf = await pdfjsLib.getDocument(typedarray).promise;
 
-    container.innerHTML = ""; // reset
-    pageImages = Array(pdf.numPages).fill(null); // placeholder
+    container.innerHTML = ""; 
+    pageImages = Array(pdf.numPages).fill(null); 
 
-    // Create flipbook with placeholders
     const flipbook = new St.PageFlip(container, {
       width: 600,
       height: 500,
@@ -28,9 +27,8 @@ uploadInput.addEventListener("change", async (e) => {
       startPage: 0
     });
 
-    // Lazy load pages
     const loadPage = async (pageNum) => {
-      if (pageImages[pageNum]) return; // already loaded
+      if (pageImages[pageNum]) return; 
       const page = await pdf.getPage(pageNum + 1);
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement("canvas");
@@ -42,10 +40,8 @@ uploadInput.addEventListener("change", async (e) => {
       flipbook.updatePage(pageNum, pageImages[pageNum]);
     };
 
-    // Preload first page
     await loadPage(0);
 
-    // Event listener untuk flip → load halaman saat dibuka
     flipbook.on("flip", async (e) => {
       const pageIndex = e.data;
       await loadPage(pageIndex);
@@ -57,7 +53,6 @@ uploadInput.addEventListener("change", async (e) => {
   fileReader.readAsArrayBuffer(file);
 });
 
-// Download ZIP tetap sama seperti sebelumnya
 downloadBtn.addEventListener("click", () => {
   const zip = new JSZip();
   const flipbookFolder = zip.folder("flipbook");
@@ -70,7 +65,6 @@ downloadBtn.addEventListener("click", () => {
       jsFolder.file("pageflip.min.js", jsContent);
       flipbookFolder.file("style.css", `body{margin:0;font-family:Arial,sans-serif}#flipbook-container{width:100%;height:500px}`);
 
-      // Simpan halaman yang sudah dirender
       pageImages.forEach((img, idx) => {
         if(img){
           const base64Data = img.split(',')[1];
